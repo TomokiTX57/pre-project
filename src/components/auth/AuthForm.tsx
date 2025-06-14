@@ -2,24 +2,60 @@
 
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
 
 export default function AuthForm() {
+  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
+    setSuccessMessage(null)
 
     try {
-      const { error } = await supabase.auth.signUp({
+      // まず、このメールアドレスでログインを試みる
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
-      if (error) throw error
+
+      if (signInData?.user) {
+        setSuccessMessage('このメールアドレスは既に登録されています。ログインしました。')
+        router.push('/dashboard')
+        router.refresh()
+        return
+      }
+
+      // ログインに失敗した場合、新規登録を試みる
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      })
+      
+      console.log('Signup response:', data)
+      
+      if (error) {
+        console.error('Signup error:', error)
+        if (error.message.includes('password')) {
+          throw new Error('パスワードは6文字以上で、英数字を含める必要があります')
+        } else if (error.message.includes('email')) {
+          throw new Error('有効なメールアドレスを入力してください')
+        } else {
+          throw error
+        }
+      }
+
+      if (data?.user) {
+        setSuccessMessage('確認メールを送信しました。メールをご確認ください。')
+      } else {
+        setError('登録に失敗しました。もう一度お試しください。')
+      }
     } catch (error) {
       setError(error instanceof Error ? error.message : 'エラーが発生しました')
     } finally {
@@ -31,14 +67,32 @@ export default function AuthForm() {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
+    setSuccessMessage(null)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
-      if (error) throw error
+
+      if (error) {
+        console.error('Sign in error:', error)
+        if (error.message.includes('Invalid login credentials')) {
+          throw new Error('メールアドレスまたはパスワードが正しくありません')
+        } else {
+          throw error
+        }
+      }
+
+      if (data?.user) {
+        console.log('Login successful:', data.user)
+        router.push('/dashboard')
+        router.refresh()
+      } else {
+        setError('ログインに失敗しました。もう一度お試しください。')
+      }
     } catch (error) {
+      console.error('Login error:', error)
       setError(error instanceof Error ? error.message : 'エラーが発生しました')
     } finally {
       setIsLoading(false)
@@ -51,6 +105,11 @@ export default function AuthForm() {
       {error && (
         <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
           {error}
+        </div>
+      )}
+      {successMessage && (
+        <div className="mb-4 p-3 bg-green-100 text-green-700 rounded">
+          {successMessage}
         </div>
       )}
       <form className="space-y-4">
