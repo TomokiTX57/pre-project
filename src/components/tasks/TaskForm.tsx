@@ -16,9 +16,10 @@ interface TaskFormProps {
     due_date: string
   }
   taskId?: string
+  showDelete?: boolean
 }
 
-export default function TaskForm({ initialData, taskId }: TaskFormProps) {
+export default function TaskForm({ initialData, taskId, showDelete = true }: TaskFormProps) {
   const router = useRouter()
   const [formData, setFormData] = useState(initialData || {
     title: '',
@@ -64,11 +65,27 @@ export default function TaskForm({ initialData, taskId }: TaskFormProps) {
         if (error) throw error
       }
 
-      router.push('/dashboard')
+      // ダッシュボードへ遷移し、リロード
+      window.location.href = '/dashboard'
     } catch (error) {
       setError(error instanceof Error ? error.message : 'タスクの保存に失敗しました')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  // 削除処理
+  const handleDelete = async () => {
+    if (!confirm('本当に削除しますか？')) return
+    const { error } = await supabase
+      .from('tasks')
+      .delete()
+      .eq('id', taskId)
+    if (error) {
+      alert('削除に失敗しました')
+    } else {
+      // ダッシュボードへ遷移し、リロード
+      window.location.href = '/dashboard'
     }
   }
 
@@ -168,6 +185,15 @@ export default function TaskForm({ initialData, taskId }: TaskFormProps) {
         >
           {isLoading ? '保存中...' : '保存'}
         </button>
+        {showDelete && (
+          <button
+            type="button"
+            onClick={handleDelete}
+            className="ml-4 text-red-600"
+          >
+            削除
+          </button>
+        )}
       </div>
     </form>
   )
