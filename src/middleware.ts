@@ -2,27 +2,21 @@ import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-export async function middleware(req: NextRequest) {
+export async function middleware(request: NextRequest) {
   const res = NextResponse.next()
-  const supabase = createMiddlewareClient({ req, res })
+  const supabase = createMiddlewareClient({ req: request, res })
+  const { data: { session } } = await supabase.auth.getSession()
+  const path = request.nextUrl.pathname.replace(/\/+/g, '/')
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  // 認証が必要なページへのアクセスを制御
-  if (!session && req.nextUrl.pathname.startsWith('/dashboard')) {
-    return NextResponse.redirect(new URL('/', req.url))
+  if (path === '/dashboard' && !session) {
+    return NextResponse.redirect(new URL('/', request.url))
   }
-
-  // ログイン済みユーザーがログインページにアクセスした場合
-  if (session && req.nextUrl.pathname === '/') {
-    return NextResponse.redirect(new URL('/dashboard', req.url))
+  if (path === '/' && session) {
+    return NextResponse.redirect(new URL('/dashboard', request.url))
   }
-
   return res
 }
 
 export const config = {
-  matcher: ['/', '/dashboard/:path*']
+  matcher: ['/', '/dashboard', '/dashboard/:path*'],
 } 
