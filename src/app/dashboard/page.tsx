@@ -4,39 +4,21 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 
 export default async function DashboardPage() {
-  let session = null
-  let tasks = []
+  const supabase = createServerComponentClient({ cookies })
+  const { data } = await supabase.auth.getSession()
+  const session = data.session
 
-  try {
-    const supabase = createServerComponentClient({ cookies })
-    const { data } = await supabase.auth.getSession()
-    session = data.session
-
-    if (!session) {
-      redirect('/')
-    }
-
-    const { data: tasksData } = await supabase
-      .from('tasks')
-      .select('*')
-      .eq('user_id', session.user.id)
-      .order('created_at', { ascending: false })
-
-    tasks = tasksData || []
-
-    await fetch('/api/auth/set', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        access_token: session.access_token,
-        refresh_token: session.refresh_token,
-      }),
-    })
-    window.location.replace('/dashboard')
-  } catch (error) {
-    console.error('Dashboard error:', error)
+  if (!session) {
     redirect('/')
   }
+
+  const { data: tasksData } = await supabase
+    .from('tasks')
+    .select('*')
+    .eq('user_id', session.user.id)
+    .order('created_at', { ascending: false })
+
+  const tasks = tasksData || []
 
   return (
     <div className="container mx-auto px-4 py-8">
